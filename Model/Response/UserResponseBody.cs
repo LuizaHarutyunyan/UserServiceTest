@@ -1,7 +1,7 @@
 ﻿
 namespace UserServiceTest.Model.NewFolder
 {
-    internal class UserResponseBody
+    public class UserResponseBody
     {
         
         public int id { get; set; }

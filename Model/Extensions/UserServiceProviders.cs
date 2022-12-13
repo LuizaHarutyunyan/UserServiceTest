@@ -12,6 +12,8 @@ namespace UserServiceTest.Model.Extensions
     {
         private readonly string _baseURL = "https://userservice-uat.azurewebsites.net";
         private readonly HttpClient _httpClient = new HttpClient();
+        private List<string> createdUsersCollection = new List<string>();
+
         public async Task<CommonResponse<Object>> CreateUser(CreateRequestBody request)
         {
 
@@ -28,7 +30,18 @@ namespace UserServiceTest.Model.Extensions
 
             //Response
             HttpResponseMessage httpResponseMessage = await _httpClient.SendAsync(CreateUserRequest);
+           string responseBody = await httpResponseMessage.Content.ReadAsStringAsync();
+            
+           //List<UserResponseBody>? actual = JsonConvert.DeserializeObject<List<UserResponseBody>>(responseBody);
+
+            if(httpResponseMessage.StatusCode== HttpStatusCode.OK)
+            {
+                createdUsersCollection.Add(responseBody);
+            }
+            
             return await HttpResponseMessageExtension.ToCommonResponse<Object>(httpResponseMessage);
+
+
         }
 
 
@@ -50,7 +63,7 @@ namespace UserServiceTest.Model.Extensions
             HttpRequestMessage getUserStatusById = new HttpRequestMessage
             {
                 Method = HttpMethod.Delete,
-                RequestUri = new Uri($"{_baseURL}/Register​/DeleteUser?userId={id}")
+                RequestUri = new Uri($"{_baseURL}/Register/DeleteUser?userId={id}")
             };
 
             HttpResponseMessage userStatusResponse = await _httpClient.SendAsync(getUserStatusById);
@@ -101,6 +114,23 @@ namespace UserServiceTest.Model.Extensions
 
             return await HttpResponseMessageExtension.ToCommonResponse<UserResponseBody>(responseOfChangedStatus);
 
+        }
+        public async Task DeleteAllCreatedUsers()
+        {
+            foreach(string createdUser in createdUsersCollection.ToList())
+            {
+                CommonResponse<UserResponseBody> commonResponse = await DeleteUser(createdUser);
+                if(commonResponse.Status == HttpStatusCode.OK)
+                {
+                    createdUsersCollection.Remove(createdUser);
+                }
+            }
+
+        }
+
+        public void AddUserTocreatedUsersCollection(string id)
+        {
+            createdUsersCollection.Add(id);
         }
 
 

@@ -2,22 +2,31 @@
 using Newtonsoft.Json;
 using NUnit.Framework;
 using System.Net;
+using System.Reactive.Linq;
+using System.Text;
+using UserServiceTest.Model;
 using UserServiceTest.Model.Extensions;
 using UserServiceTest.Model.NewFolder;
 using UserServiceTest.Model.Request;
 
 namespace UserServiceTest
 {
-    internal class Tests
+    internal class UserServiceTest
 
     {
         UserServiceProviders userServiceProviders = new UserServiceProviders();
         private readonly string _baseURL = "https://userservice-uat.azurewebsites.net";
         private readonly HttpClient _httpClient = new HttpClient();
 
-        [SetUp]
-        public void Setup()
+        [OneTimeSetUp]
+        public void OneTimeSetUp()
         {
+
+        }
+        [TearDown]
+        public async Task TearDown()
+        {
+            await userServiceProviders.DeleteAllCreatedUsers();
 
         }
 
@@ -25,21 +34,33 @@ namespace UserServiceTest
         public async Task RegisterNewUser_ValidatePostRequestStatus_ResponceStatusIsOk()
         {
 
-            var response = await userServiceProviders.CreateUser(new CreateRequestBody
+            UserResponseBody body = new UserResponseBody
             {
                 firstName = "serhii",
                 lastName = "mykhailov"
-            });
-            
-            Assert.AreEqual(HttpStatusCode.OK, response.Status);
+            };
+           
+            string serializedBody = JsonConvert.SerializeObject(body);
+
+            HttpRequestMessage CreateUserRequest = new HttpRequestMessage
+            {
+                Method = HttpMethod.Post,
+                RequestUri = new Uri($"{_baseURL}/Register/RegisterNewUser"),
+                Content = new StringContent(serializedBody, Encoding.UTF8, "application/json")
+            };
+
+            HttpResponseMessage httpResponseMessage = await _httpClient.SendAsync(CreateUserRequest);
+            string responseBody = await httpResponseMessage.Content.ReadAsStringAsync();
+            userServiceProviders.AddUserTocreatedUsersCollection(responseBody);
+            Assert.AreEqual(HttpStatusCode.OK, httpResponseMessage.StatusCode);
         }
 
         [Test]
         public async Task GetUserInfo_CheckGetUserInfoStatusAndBody_ResponceStatusIsOk()
         {
-            var deleteAll = userServiceProviders.DeleteAllUsers();
+            
 
-             CreateRequestBody request=new CreateRequestBody
+            CreateRequestBody request = new CreateRequestBody
             {
                 firstName = "serhii",
                 lastName = "mykhailov"
@@ -49,10 +70,10 @@ namespace UserServiceTest
             CommonResponse<object> commonResponse = await userServiceProviders.CreateUser(request);
             string id = commonResponse.Content;
 
-           HttpRequestMessage getUserRequest = new HttpRequestMessage
-             {
-             Method = HttpMethod.Get,
-            RequestUri = new Uri($"{_baseURL}/CacheManagement")
+            HttpRequestMessage getUserRequest = new HttpRequestMessage
+            {
+                Method = HttpMethod.Get,
+                RequestUri = new Uri($"{_baseURL}/CacheManagement")
 
             };
 
@@ -72,7 +93,7 @@ namespace UserServiceTest
             Assert.AreEqual(HttpStatusCode.OK, getUserResponse.StatusCode);
             actual[0].Should().BeEquivalentTo(expected);
         }
- 
+
 
 
         [Test]
@@ -86,9 +107,7 @@ namespace UserServiceTest
         [Test]
         public async Task DeleteUserById_CheckDeleteRequestStatusAndBody_ResponceStatusIsOkAndBodyIsEmpty()
         {
-            var deleteAll = userServiceProviders.DeleteAllUsers();
-
-            //CreateNewUser
+            
             CreateRequestBody request = new CreateRequestBody
             {
                 firstName = "serhii",
@@ -99,30 +118,23 @@ namespace UserServiceTest
             CommonResponse<object> commonResponse = await userServiceProviders.CreateUser(request);
             string id = commonResponse.Content;
 
-            //DeleteCreatedUser
-            HttpRequestMessage deleteUserByIdResponse = new HttpRequestMessage
+
+            HttpRequestMessage deleteUserRequest = new HttpRequestMessage
             {
                 Method = HttpMethod.Delete,
                 RequestUri = new Uri($"{_baseURL}/Register/DeleteUser?userId={id}")
-
             };
 
-            HttpResponseMessage response = await _httpClient.SendAsync(deleteUserByIdResponse);
-
-
-
-            string actual = await response.Content.ReadAsStringAsync();
-       
-
-        
-            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+            HttpResponseMessage deleteUserResponse = await _httpClient.SendAsync(deleteUserRequest);
+            string actual =  await deleteUserResponse.Content.ReadAsStringAsync();
+            Assert.AreEqual(HttpStatusCode.OK, deleteUserResponse.StatusCode);
             Assert.IsEmpty(actual);
         }
 
         [Test]
         public async Task GetDeleatedUserById_CheckDeletedUserResponseStatusAfterGetRequest_InternalServerError()
-        {   
-          var deleteAll =await userServiceProviders.DeleteAllUsers();
+        {
+           
             CreateRequestBody request = new CreateRequestBody
             {
                 firstName = "serhii",
@@ -131,13 +143,13 @@ namespace UserServiceTest
 
             CommonResponse<object> commonResponse = await userServiceProviders.CreateUser(request);
             string id = commonResponse.Content;
-            
+
             HttpRequestMessage deleteUserRequest = new HttpRequestMessage
             {
-              Method = HttpMethod.Delete,
-            RequestUri = new Uri($"{_baseURL}/Register/DeleteUser?userId={id}")
+                Method = HttpMethod.Delete,
+                RequestUri = new Uri($"{_baseURL}/Register/DeleteUser?userId={id}")
             };
-            HttpResponseMessage responseDeletedUser= await _httpClient.SendAsync(deleteUserRequest);
+            HttpResponseMessage responseDeletedUser = await _httpClient.SendAsync(deleteUserRequest);
 
             HttpRequestMessage repeateDeleteUserRequest = new HttpRequestMessage
             {
@@ -149,7 +161,7 @@ namespace UserServiceTest
             string errorMessage = "Sequence contains no elements";
 
 
-            
+
             Assert.AreEqual(HttpStatusCode.InternalServerError, responseRepeatedDeleteUserRequest.StatusCode);
             Assert.AreEqual(actual, errorMessage);
         }
@@ -157,7 +169,6 @@ namespace UserServiceTest
         [Test]
         public async Task GetNotExistingUser_CheckStatusOfNotExistingUser_ResponseStatusIsNotFound()
         {
-            var deleteAll = await userServiceProviders.DeleteAllUsers();
             CreateRequestBody request = new CreateRequestBody
             {
                 firstName = "serhii",
@@ -171,7 +182,7 @@ namespace UserServiceTest
                 Method = HttpMethod.Delete,
                 RequestUri = new Uri($"{_baseURL}/Register/DeleteUser?userId={id}")
             };
-            HttpResponseMessage responseDeletedUser= await _httpClient.SendAsync(deleteUser); 
+            HttpResponseMessage responseDeletedUser = await _httpClient.SendAsync(deleteUser);
             HttpRequestMessage repeateDeleteUserRequest = new HttpRequestMessage
             {
                 Method = HttpMethod.Get,
@@ -186,7 +197,6 @@ namespace UserServiceTest
         [Test]
         public async Task ChangeStatusOnNotExistingUser_CheckStatusOfNotExistingUser_ResponseStatusIsNotFound()
         {
-            var deleteAll = await userServiceProviders.DeleteAllUsers();
             CreateRequestBody request = new CreateRequestBody
             {
                 firstName = "serhii",
@@ -195,9 +205,9 @@ namespace UserServiceTest
 
             CommonResponse<object> commonResponse = await userServiceProviders.CreateUser(request);
             string id = commonResponse.Content;
-            string notExistingId = (int.Parse(id)+9999).ToString();
-          
-       
+            string notExistingId = (int.Parse(id) + 9999).ToString();
+
+
             HttpRequestMessage changeUsersStatus = new HttpRequestMessage
             {
                 Method = HttpMethod.Put,
@@ -212,8 +222,6 @@ namespace UserServiceTest
         [Test]
         public async Task GetUserById_CheckResponseStatus_ResponseStatusIsOk()
         {
-
-            var deleteAll = userServiceProviders.DeleteAllUsers();
             CreateRequestBody request = new CreateRequestBody
             {
                 firstName = "serhii",
@@ -228,10 +236,10 @@ namespace UserServiceTest
                 RequestUri = new Uri($"{_baseURL}/UserManagement/GetUserStatus?userId={id}")
 
             };
-            
+
             HttpResponseMessage response = await _httpClient.SendAsync(getUserByIdrequest);
             Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
-           
+
 
         }
         [Test]
@@ -253,20 +261,20 @@ namespace UserServiceTest
                 RequestUri = new Uri($"{_baseURL}/UserManagement/GetUserStatus?userId={id}")
 
             };
-           
+
             HttpResponseMessage response = await _httpClient.SendAsync(getUserByIdrequest);
             string actual = await response.Content.ReadAsStringAsync();
             string expected = "false";
-             actual.Should().Be(expected);
+            actual.Should().Be(expected);
 
         }
-     
+
 
 
         [Test]
         public async Task ChangeUserStatus_CheckUserStatusResponseStatus_ResponseStatusIsOk()
         {
-            var deleteAll = userServiceProviders.DeleteAllUsers();
+           
             CreateRequestBody request = new CreateRequestBody
             {
                 firstName = "serhii",
@@ -275,13 +283,13 @@ namespace UserServiceTest
 
             CommonResponse<object> commonResponse = await userServiceProviders.CreateUser(request);
             string id = commonResponse.Content;
-           
+
 
             HttpRequestMessage StatusOfUserChangeRequest = new HttpRequestMessage
             {
                 Method = HttpMethod.Put,
                 RequestUri = new Uri($"{_baseURL}/UserManagement/SetUserStatus?userId={id}&newStatus={true}"),
-                
+
             };
 
             HttpResponseMessage responseOfChangedStatus = await _httpClient.SendAsync(StatusOfUserChangeRequest);
@@ -291,10 +299,8 @@ namespace UserServiceTest
 
         [Test]
         public async Task ChangeUserStatusFromFalseToTrue_CheckChangedUserStatus_UserStatusIsTrue()
-        {
-            //Delete All
-            var deleteAll = userServiceProviders.DeleteAllUsers();
-            
+        { 
+
             CreateRequestBody request = new CreateRequestBody
             {
                 firstName = "serhii",
@@ -303,16 +309,16 @@ namespace UserServiceTest
 
             CommonResponse<object> commonResponse = await userServiceProviders.CreateUser(request);
             string id = commonResponse.Content;
-           
+
             HttpRequestMessage StatusOfUserChangeRequest = new HttpRequestMessage
             {
                 Method = HttpMethod.Put,
                 RequestUri = new Uri($"{_baseURL}/UserManagement/SetUserStatus?userId={id}&newStatus={true}"),
 
             };
-           
-           HttpResponseMessage responseOfChangesUserStatus = await _httpClient.SendAsync(StatusOfUserChangeRequest);
-            CommonResponse<bool> getUserStatus = await userServiceProviders.GetUserStatus(id) ;
+
+            HttpResponseMessage responseOfChangesUserStatus = await _httpClient.SendAsync(StatusOfUserChangeRequest);
+            CommonResponse<bool> getUserStatus = await userServiceProviders.GetUserStatus(id);
             string actual = getUserStatus.Content;
 
 
@@ -322,7 +328,6 @@ namespace UserServiceTest
         [Test]
         public async Task ChangeUserStatusFromTrueToFalse_CheckChangedUserStatus_UserStatusIsFalse()
         {
-            var deleteAll = userServiceProviders.DeleteAllUsers();
             CreateRequestBody request = new CreateRequestBody
             {
                 firstName = "serhii",
@@ -331,7 +336,7 @@ namespace UserServiceTest
 
             CommonResponse<object> commonResponse = await userServiceProviders.CreateUser(request);
             string id = commonResponse.Content;
-            var responseForChangedStatus = await userServiceProviders.ChangeUserStatus(id,true);
+            var responseForChangedStatus = await userServiceProviders.ChangeUserStatus(id, true);
 
             HttpRequestMessage StatusOfUserChangeRequest = new HttpRequestMessage
             {
@@ -340,9 +345,9 @@ namespace UserServiceTest
 
             };
 
-          HttpResponseMessage responseOfChangedStatus = await _httpClient.SendAsync(StatusOfUserChangeRequest);
-         
-          CommonResponse<bool> getUserStatus = await userServiceProviders.GetUserStatus(id);
+            HttpResponseMessage responseOfChangedStatus = await _httpClient.SendAsync(StatusOfUserChangeRequest);
+
+            CommonResponse<bool> getUserStatus = await userServiceProviders.GetUserStatus(id);
             string actual = getUserStatus.Content;
 
             actual.Should().Be("false");
@@ -354,7 +359,7 @@ namespace UserServiceTest
         [Test]
         public async Task IdSequence_CheckIdSequence_AfterDeletingCreatedUserIdIsBiggerByOne()
         {
-            var deleteAll = userServiceProviders.DeleteAllUsers();
+       
             CreateRequestBody firtsUserRqeuest = new CreateRequestBody
             {
                 firstName = "serhii",
@@ -372,11 +377,14 @@ namespace UserServiceTest
 
             CommonResponse<object> commonResponseOfSecondUser = await userServiceProviders.CreateUser(firtsUserRqeuest);
             string idOfSecondtUser = commonResponseOfSecondUser.Content;
-            string expected = (int.Parse(idOfFirstUser) +1).ToString();
+            string expected = (int.Parse(idOfFirstUser) + 1).ToString();
 
 
             Assert.AreEqual(expected, idOfSecondtUser);
 
         }
     }
+
+
 }
+
