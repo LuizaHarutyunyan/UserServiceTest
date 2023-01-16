@@ -9,7 +9,7 @@ namespace UserServiceTest.Model.Extensions
 
     internal class WalletServiceProvider
     {
-        private readonly string _baseURL = "https://walletservice-uat.azurewebsites.net";
+        private readonly string _baseURL = "https://walletservice-uat.azurewebsites.net/";
         private readonly HttpClient _httpClient = new HttpClient();
 
         public async Task<CommonResponse<object>> GetBalance(string id)
@@ -40,7 +40,7 @@ namespace UserServiceTest.Model.Extensions
                 Content = new StringContent(serializedBody, Encoding.UTF8, "application/json")
             };
 
-            //Response
+       
             HttpResponseMessage changeBalanceResponse = await _httpClient.SendAsync(changeBalanceRequest);
             return await HttpResponseMessageExtension.ToCommonResponse<string>(changeBalanceResponse);
         }

@@ -1,4 +1,4 @@
-﻿using static UserServiceTest.UserServiceTest;
+﻿using static UserServiceTest.Tests.UserServiceTest;
 using Newtonsoft.Json;
 using System.Net.Http;
 using System.Threading.Tasks;

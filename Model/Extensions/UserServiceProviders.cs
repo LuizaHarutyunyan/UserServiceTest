@@ -31,14 +31,13 @@ namespace UserServiceTest.Model.Extensions
             //Response
             HttpResponseMessage httpResponseMessage = await _httpClient.SendAsync(CreateUserRequest);
            string responseBody = await httpResponseMessage.Content.ReadAsStringAsync();
-            
-           //List<UserResponseBody>? actual = JsonConvert.DeserializeObject<List<UserResponseBody>>(responseBody);
 
-            if(httpResponseMessage.StatusCode== HttpStatusCode.OK)
+
+            if (httpResponseMessage.StatusCode == HttpStatusCode.OK)
             {
                 createdUsersCollection.Add(responseBody);
             }
-            
+
             return await HttpResponseMessageExtension.ToCommonResponse<Object>(httpResponseMessage);
 
 
@@ -64,19 +63,6 @@ namespace UserServiceTest.Model.Extensions
             {
                 Method = HttpMethod.Delete,
                 RequestUri = new Uri($"{_baseURL}/Register/DeleteUser?userId={id}")
-            };
-
-            HttpResponseMessage userStatusResponse = await _httpClient.SendAsync(getUserStatusById);
-
-            return await HttpResponseMessageExtension.ToCommonResponse<UserResponseBody>(userStatusResponse);
-
-        }
-        public async Task<CommonResponse<UserResponseBody>> GetAllUsers()
-        {
-            HttpRequestMessage getUserStatusById = new HttpRequestMessage
-            {
-                Method = HttpMethod.Get,
-                RequestUri = new Uri($"{_baseURL}/CacheManagement")
             };
 
             HttpResponseMessage userStatusResponse = await _httpClient.SendAsync(getUserStatusById);
